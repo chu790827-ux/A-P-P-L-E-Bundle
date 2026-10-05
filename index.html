@@ -36,7 +36,7 @@ footer{text-align:center;padding:10px 20px 30px;color:#8a949b;font-size:12px}
     <p><strong>L</strong> Link teams / Arterial Line：團隊溝通、評估 ABP 必要性</p>
     <p><strong>E</strong> Evaluation：評值並完成紀錄</p>
   </div>
-  <div class="card"><h2>🎮 今日 90 秒情境闖關</h2><p>依 APPLE Bundle 順序闖關：A → P → P → L → E，共 8 題臨床情境。</p><button onclick="startQuiz()">開始挑戰</button></div>
+  <div class="card"><h2>🎮 今日 90 秒情境闖關</h2><p>依 APPLE Bundle 順序闖關：A → P → P → L → E，共 8 題臨床情境。</p><label for="playerName" style="display:block;font-weight:800;margin-top:12px">姓名／代碼</label><input id="playerName" type="text" placeholder="請輸入姓名或代碼" style="width:100%;padding:13px;border:1px solid #dfe3e6;border-radius:12px;font-size:16px;margin:7px 0"><div id="nameError" class="small" style="color:#b33;display:none">請先輸入姓名或代碼</div><button onclick="startQuiz()">開始挑戰</button></div>
 </div>
 
 <div id="quiz">
@@ -61,12 +61,20 @@ const qs=[
  {q:"L｜Link teams / Arterial Line：血壓持續未達目標時，哪一項符合 APPLE Bundle？",o:["自行持續調藥，不需通報","通報醫師並評估建立 ABP 的必要性","只增加量測次數","等交班再處理"],a:1,f:"L｜Link teams / Arterial Line：進行團隊溝通、通報醫師，並評估建立 ABP 的必要性。"},
  {q:"E｜Evaluation：完成血壓調控後，依本方案應於多久內完成相關紀錄？",o:["15分鐘內","30分鐘內","1小時內","交班前"],a:1,f:"E｜Evaluation：30分鐘內完成紀錄，包括生命徵象、給藥時間、劑量及病人反應（神經學變化）。"}
 ];
-let i=0,score=0,left=90,timer;
-function startQuiz(){home.style.display="none";quiz.style.display="block";render();timer=setInterval(()=>{left--;time.textContent=left;if(left<=0)finish()},1000)}
+const WEB_APP_URL="https://script.google.com/macros/s/AKfycbzk9pIP5lvM8X-6thEefhW_5eSyLysAspXVfnqkkfmINFA0JSm9Ehefi87qWLfNJ62Awg/exec";
+let i=0,score=0,left=90,timer,answers=Array(qs.length).fill("");
+let submitted=false;
+function startQuiz(){
+ const n=document.getElementById("playerName").value.trim();
+ if(!n){document.getElementById("nameError").style.display="block";return;}
+ document.getElementById("nameError").style.display="none";
+ home.style.display="none";quiz.style.display="block";render();timer=setInterval(()=>{left--;time.textContent=left;if(left<=0)finish()},1000)
+}
 function render(){num.textContent=i+1;question.textContent=qs[i].q;options.innerHTML="";feedback.innerHTML="";
  if(qs[i].img){let note=document.createElement("div");note.className="refnote";note.textContent="📌 請參考下方 Perdipine 初始／後續調整表作答";options.appendChild(note);let im=document.createElement("img");im.className="refimg";im.src=qs[i].img;im.alt="Perdipine 初始與後續劑量調整表";options.appendChild(im);}
  qs[i].o.forEach((x,j)=>{let b=document.createElement("button");b.className="option";b.textContent=x;b.onclick=()=>answer(j,b);options.appendChild(b)})}
 function answer(j,b){
+ answers[i]=qs[i].o[j];
  const btns=[...options.querySelectorAll("button.option")];
  btns.forEach(x=>x.disabled=true);
  if(j===qs[i].a){score++;b.classList.add("correct")}
@@ -78,6 +86,7 @@ function answer(j,b){
 function next(){i++;if(i>=qs.length)finish();else render()}
 function finish(){
  clearInterval(timer);
+ while(i<qs.length){ if(!answers[i]) answers[i]="未作答"; i++; }
  const elapsed=Math.min(90,Math.max(0,90-left));
  const pct=Math.round((score/qs.length)*1000)/10;
  let badge="",msg="";
@@ -98,6 +107,21 @@ function finish(){
    <p style="margin-top:12px">${msg}</p>
    <button class="primary" onclick="location.reload()">再挑戰一次</button>
  </div>`;
+ const playerName=document.getElementById("playerName").value.trim();
+ const payload={name:playerName,score:score,seconds:elapsed};
+ for(let k=0;k<qs.length;k++){
+   payload["q"+(k+1)]=answers[k];
+   payload["correct"+(k+1)]=answers[k]===qs[k].o[qs[k].a];
+ }
+ const status=document.createElement("p");
+ status.id="submitStatus"; status.className="small"; status.textContent="⏳ 成績傳送中…";
+ result.querySelector(".card").appendChild(status);
+ if(!submitted){
+   submitted=true;
+   fetch(WEB_APP_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)})
+     .then(()=>{status.textContent="✅ 成績已送出至後台";})
+     .catch(()=>{status.textContent="⚠️ 成績傳送失敗，請告知管理者";submitted=false;});
+ }
  window.scrollTo(0,0);
 }
 </script></body></html>
